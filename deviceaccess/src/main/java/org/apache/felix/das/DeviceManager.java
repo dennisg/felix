@@ -163,14 +163,14 @@ public class DeviceManager implements Log
 
     public void stop()
     {
-        // nothing to do ?
+        m_worker.shutdownNow();
+        m_delayed.shutdownNow();
     }
 
 
     public void destroy()
     {
-        m_worker.shutdownNow();
-        m_delayed.shutdownNow();
+    	//nothing to do
     }
 
 
@@ -243,6 +243,20 @@ public class DeviceManager implements Log
     {
         m_devices.put( ref, device );
         debug( "device appeared: " + Util.showDevice( ref ) );
+        //check if the device is already in use by a driver...
+        Bundle[] using = ref.getUsingBundles(); 
+        if (using == null) using = new Bundle[0];
+        
+        for (Bundle bundle : using) {
+	        ServiceReference[] refs = bundle.getRegisteredServices();
+	        if (refs == null) refs = new ServiceReference[0];
+	        for (ServiceReference serviceReference : refs) {
+	            if (m_driverImplFilter.match(serviceReference)) {
+	            	debug("device is already in use by a driver: " + Util.showDriver(serviceReference));
+	            	return;
+	            }
+            }
+        }
         submit( new DriverAttachAlgorithm( ref, device ) );
     }
 
@@ -274,7 +288,7 @@ public class DeviceManager implements Log
      */
     private void submit( Callable<Object> task )
     {
-        m_worker.submit( new LoggedCall( task ) );
+        if (!m_worker.isShutdown()) m_worker.submit( new LoggedCall( task ) );
     }
 
 
@@ -454,17 +468,21 @@ public class DeviceManager implements Log
                 info( "checking if idle: " + ref.getBundle().getSymbolicName() );
 
                 final Bundle[] usingBundles = ref.getUsingBundles();
+                boolean isInUse = false;
                 for ( Bundle bundle : usingBundles )
                 {
                     if ( isDriverBundle( bundle ) )
                     {
+                        isInUse = true;
                         info( "used by driver: " + bundle.getSymbolicName() );
                         debug( "not idle: " + ref.getBundle().getSymbolicName() );
                         break;
                     }
                     
-                    list.add( ref );
 
+                }
+                if (!isInUse) {
+                    list.add( ref );
                 }
             }
             return list;
@@ -503,7 +521,8 @@ public class DeviceManager implements Log
         {
 
             info( "cleaning driver cache" );
-            for ( DriverAttributes da : m_drivers.values() )
+            DriverAttributes[] das = m_drivers.values().toArray(new DriverAttributes[0]);
+            for ( DriverAttributes da : das )
             {
                 // just call the tryUninstall; the da itself
                 // will know if it should really uninstall the driver.
@@ -552,6 +571,23 @@ public class DeviceManager implements Log
             m_driverLoader = new DriverLoader( DeviceManager.this, m_context );
         }
 
+        private boolean isBoundToDriver() {
+            //check if the device is already in use by a driver...
+            Bundle[] using = m_ref.getUsingBundles(); 
+            if (using == null) using = new Bundle[0];
+            
+            for (Bundle bundle : using) {
+    	        ServiceReference[] refs = bundle.getRegisteredServices();
+    	        if (refs == null) refs = new ServiceReference[0];
+    	        for (ServiceReference serviceReference : refs) {
+    	            if (m_driverImplFilter.match(serviceReference)) {
+    	            	debug("device is already in use by a driver: " + Util.showDriver(serviceReference));
+    	            	return true;
+    	            }
+                }
+            }
+        	return false;
+        }
 
         @SuppressWarnings("all")
         private Dictionary createDictionary( ServiceReference ref )
@@ -569,6 +605,10 @@ public class DeviceManager implements Log
         @SuppressWarnings("all")
         public Object call() throws Exception
         {
+        	if (isBoundToDriver()) {
+                debug( "not finding suitable driver for: " + Util.showDevice( m_ref ) + " already bound");
+        		return null;
+        	}
             info( "finding suitable driver for: " + Util.showDevice( m_ref ) );
 
             final Dictionary dict = createDictionary( m_ref );
@@ -671,7 +711,14 @@ public class DeviceManager implements Log
                 return null;
             }
 
-            String driverId = String.class.cast( bestMatch.getDriver().getProperty( Constants.DRIVER_ID ) );
+            String driverId = null;
+            
+            try {
+            	driverId = bestMatch.getDriver().getProperty( Constants.DRIVER_ID ).toString();
+            } catch (Exception e) {
+            	error(String.format("Your best matching driver does not have the required '%s' service property (it also must be a String). Bailing out...", Constants.DRIVER_ID), e);
+            	return null;
+			}
 
             debug( "best match: " + driverId );
             m_finalDriver = m_drivers.get( bestMatch.getDriver() );

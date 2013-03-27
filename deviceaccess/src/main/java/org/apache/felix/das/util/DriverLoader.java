@@ -27,6 +27,8 @@ import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.felix.das.DriverAttributes;
 import org.apache.felix.das.Log;
@@ -55,14 +57,14 @@ public class DriverLoader
     /**
      * to keep track of all loaded drivers
      */
-    private final List<ServiceReference> m_loadedDrivers;
+    private final Map<Bundle, List<ServiceReference>> m_loadedDrivers;
 
 
     public DriverLoader( Log log, BundleContext context )
     {
         m_log = log;
         m_context = context;
-        m_loadedDrivers = new ArrayList<ServiceReference>();
+        m_loadedDrivers = new HashMap<Bundle, List<ServiceReference>>();
     }
 
 
@@ -154,7 +156,12 @@ public class DriverLoader
 
             driverRefs.addAll( Arrays.asList( refs ) );
             // keep track of them locally
-            m_loadedDrivers.addAll( Arrays.asList( refs ) );
+            List<ServiceReference> references = m_loadedDrivers.get(driverBundle);
+            if (references == null) {
+                references = new ArrayList<ServiceReference>();
+                m_loadedDrivers.put(driverBundle, references);
+            }
+            references.addAll( Arrays.asList( refs ) );
 
         }
         catch ( Throwable t )
@@ -173,20 +180,28 @@ public class DriverLoader
         if ( finalDriver != null )
         {
             finalRef = finalDriver.getReference();
-            m_log.debug( "unloading all except: " + finalRef.getProperty( Constants.DRIVER_ID ) );
+            m_log.debug( "unloading all except: " + finalRef.getProperty( Constants.DRIVER_ID ) + " from " + finalRef.getBundle().getSymbolicName() );
         }
-        for ( ServiceReference ref : m_loadedDrivers )
+        for ( Bundle bundle : m_loadedDrivers.keySet() )
         {
-            if ( !ref.equals( finalRef ) )
-            {
+            boolean hasFinalRef = false;
+            List<ServiceReference> references = m_loadedDrivers.get(bundle);
+            for (ServiceReference ref : references) {
+                if ( ref.equals( finalRef ) ){
+                    hasFinalRef = true;
+                    break;
+                }
+            }
+            
+            if (!hasFinalRef) {
                 try
                 {
-                    m_log.debug( "uninstalling: " + ref.getProperty( Constants.DRIVER_ID ) );
-                    ref.getBundle().uninstall();
+                    m_log.debug( "uninstalling: " + bundle.getSymbolicName() );
+                    bundle.uninstall();
                 }
                 catch ( BundleException e )
                 {
-                    m_log.warning( "unable to uninstall: " + ref.getProperty( Constants.DRIVER_ID ) );
+                    m_log.warning( "unable to uninstall: " + bundle.getSymbolicName() );
                 }
             }
         }

@@ -83,6 +83,7 @@ public class DriverMatcherTest
         
         Mockito.when(ref.getBundle()).thenReturn(bundle);
         Mockito.when(bundle.getLocation()).thenReturn(DriverLoader.DRIVER_LOCATION_PREFIX + "-" + id);
+        Mockito.when(bundle.getState()).thenReturn(Bundle.ACTIVE);
         
         Mockito.when(ref.getProperty(Constants.SERVICE_ID))
         	.thenReturn(m_serviceId++);

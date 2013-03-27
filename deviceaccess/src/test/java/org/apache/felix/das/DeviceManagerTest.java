@@ -145,6 +145,7 @@ public class DeviceManagerTest
         	.thenAnswer( answer );
         
         Bundle bundle = m_osgi.getBundle( ref );
+        Mockito.when( bundle.getState() ).thenReturn(Bundle.ACTIVE);
         Mockito.when( bundle.getLocation() )
         	.thenReturn( 
             DriverLoader.DRIVER_LOCATION_PREFIX  + p.getProperty( Constants.DRIVER_ID ));
@@ -206,7 +207,8 @@ public class DeviceManagerTest
 
         final Driver driver = tstCreateDriver( driverId, match );
         final ServiceReference driverRef = m_osgi.getReference( driver );
-
+        final Bundle driverBundle = m_osgi.getBundle(driverRef);
+        
         Answer<Object> answer = new Answer<Object>()
         {
         	
@@ -224,6 +226,18 @@ public class DeviceManagerTest
         Mockito.when( bundle.getRegisteredServices() )
         	.thenReturn( new ServiceReference[]{ driverRef } );
 
+        Answer<String> answer1 = new Answer<String>() {
+            public String answer(InvocationOnMock invocation) throws Throwable {
+                //mark the driver as being in use...
+                //Object device = tstCreateDevice(new String[]{"a.device"});
+                //ServiceReference deviceRef = m_osgi.getReference(device);
+                //Mockito.when(driverBundle.getServicesInUse()).thenReturn(new ServiceReference[]{deviceRef});
+                return null;
+            }
+        };
+        Mockito.doAnswer(answer1).when(driver).attach(Mockito.any(ServiceReference.class));
+        
+        
         return driver;
     }
 
@@ -303,7 +317,7 @@ public class DeviceManagerTest
      * Also, if a driver is found, we can also expect that loadDriver is called;
      * resulting in an InputStream. That particular input stream should, when installed
      * using a bundle context, lead to the registration of a driver with 
-     * the correcsponding driver id.
+     * the corresponding driver id.
      *  
      * @param locator
      * @param driverIds
@@ -438,7 +452,7 @@ public class DeviceManagerTest
     	p.put(Constants.DEVICE_CATEGORY, new String[]{"dummy"});
     	
         ServiceReference ref = OSGiMock.createReference(p);
-        
+        Mockito.when(ref.getUsingBundles()).thenReturn(new Bundle[0]);
         Object device = new Object();
 
         m_manager.deviceAdded( ref, device );
@@ -458,6 +472,7 @@ public class DeviceManagerTest
     	p.put(Constants.DEVICE_CATEGORY, new String[]{"dummy"});
     	
         ServiceReference ref = OSGiMock.createReference(p);
+        Mockito.when(ref.getUsingBundles()).thenReturn(new Bundle[0]);
         Object device = new Object();
         
         m_manager.deviceAdded( ref, new Object() );

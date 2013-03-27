@@ -29,7 +29,7 @@
   </parent>
 
   <artifactId>org.apache.felix.devicemanager</artifactId>
-  <version>0.9.0-SNAPSHOT</version>
+  <version>0.9.3</version>
   <packaging>bundle</packaging>
 
   <name>Apache Felix Device Manager</name>
@@ -52,15 +52,21 @@
 	       <scope>provided</scope>
 	   </dependency>
 	   <dependency>
-	     <groupId>${pom.groupId}</groupId>
+	     <groupId>${project.groupId}</groupId>
 	     <artifactId>org.apache.felix.framework</artifactId>
 	     <version>1.6.0</version>
 	     <scope>test</scope>
 	   </dependency>
 	   <dependency>
-	     <groupId>${pom.groupId}</groupId>
+	     <groupId>${project.groupId}</groupId>
 	     <artifactId>org.apache.felix.dependencymanager</artifactId>
 	     <version>3.0.0</version>
+	     <scope>compile</scope>
+	   </dependency>
+	   <dependency>
+	     <groupId>${project.groupId}</groupId>
+	     <artifactId>org.apache.felix.scr</artifactId>
+	     <version>1.6.0</version>
 	     <scope>provided</scope>
 	   </dependency>
 	 </dependencies>
@@ -73,12 +79,14 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
+ 			<Embed-Dependency>*;scope=compile</Embed-Dependency>
             <Bundle-SymbolicName>org.apache.felix.das</Bundle-SymbolicName>
             <Bundle-Name>Apache Felix Device Manager</Bundle-Name>
             <Bundle-Description>A bundle that provides a run-time device manager.</Bundle-Description>
             <Bundle-Vendor>Apache Software Foundation</Bundle-Vendor>
             <Bundle-Activator>org.apache.felix.das.Activator</Bundle-Activator>
             <Private-Package>org.apache.felix.das, org.apache.felix.das.util</Private-Package>
+            <Import-Package>*;org.apache.felix.dm;resolution:=optional</Import-Package>
           </instructions>
         </configuration>
       </plugin>
@@ -86,8 +94,8 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <configuration>
-             <source>1.5</source>
-             <target>1.5</target>
+             <source>1.6</source>
+             <target>1.6</target>
         </configuration>
       </plugin>
     </plugins>
